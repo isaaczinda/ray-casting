@@ -1,8 +1,18 @@
 from geometry import normalized
 import numpy as np
 
+class Ray:
+    def __init__(self, point, direction):
+        self.point = point
+        self.direction = direction
+
+    def __str__(self):
+        return "Ray: " + str(self.point) + ", " + str(self.direction)
+
 class ViewPort:
-    ''' viewport screen that rays will be cast from '''
+    ''' creates a viewport screen that rays will be cast from.
+    Precalculates the paths that all rays will take on creation.
+    '''
 
     def __init__(self, screenCenterPoint, targetPoint, eyeDistance, \
     screenDimensions=(25, 25), resolution=(100, 100), orientation=np.array([0, 1, 0])):
@@ -22,9 +32,6 @@ class ViewPort:
         self.upperRight = screenCenterPoint + horizontalVector + verticalVector
 
         self._setup()
-
-    def setResolution(self, resolution):
-        self.resolution = resolution
 
     def width(self):
         ''' gets the width of the image '''
@@ -67,23 +74,37 @@ class ViewPort:
         self._horizontalVector = normalized(self.lowerRight - self.lowerLeft)
         self._verticalVector = normalized(self.upperRight - self.lowerRight)
 
+        self._precalculateRays()
+
+
     def getRay(self, x, y):
-        ''' gets the location that a ray will be cast from, given x and y
-        coord in the screen
-
-        returns:: (coordinate, ray direction)
-
-        raises IndexError if coordiante is out of screen
+        ''' Gets the location that a ray will be cast from, given x and y
+        coord in the screen. The rays have been precalcualted for speed.
+        Returns Ray object.
         '''
 
-        if x > self.resolution[0] or y > self.resolution[1] or x < 0 or y < 0:
-            raise IndexError("specified coordinate was out of screen")
+        return self._rays[x][y]
 
-        # the location that the ray will be cast from
-        xRaySpacing = self.screenDimensions[0] / self.resolution[0]
-        yRaySpacing = self.screenDimensions[1] / self.resolution[1]
+    def _precalculateRays(self):
+        # create array that will contain all ray information
+        self._rays = []
 
-        coordinate = x * self._horizontalVector * xRaySpacing + y * self._verticalVector * yRaySpacing + self.lowerLeft
-        direction = normalized(coordinate - self.eyePoint)
+        for x in range(self.width()):
+            self._rays.append([])
 
-        return (coordinate, direction)
+            for y in range(self.height()):
+                # the location that the ray will be cast from
+                xRaySpacing = self.screenDimensions[0] / self.resolution[0]
+                yRaySpacing = self.screenDimensions[1] / self.resolution[1]
+
+                coordinate = x * self._horizontalVector * xRaySpacing + y * self._verticalVector * yRaySpacing + self.lowerLeft
+                direction = normalized(coordinate - self.eyePoint)
+
+                # [y, x] because we select row, then column
+                self._rays[x].append(Ray(coordinate, direction))
+
+# run some tests!
+if __name__ == '__main__':
+    view = ViewPort(np.array([0, 0, 10]), np.array([0, 0, 0]), 10)
+
+    print(view.getRay(50, 50))

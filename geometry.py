@@ -3,6 +3,36 @@ import math
 
 POINT_IN_TRIANGLE_MAX_DIFF = .001
 
+
+class Triangle:
+    #
+    projectionMatrix = np.array([[1, 0, 0], [0, 1, 0]])
+
+    def __init__(self, A, B, C):
+        ''' construct triangle from three points stored in python arrays '''
+        self.A = np.array(A)
+        self.B = np.array(B)
+        self.C = np.array(C)
+
+        # points stored as column vector
+        self._points = np.array([A, B, C]).T
+        
+        self.normal = np.cross(self.A - self.B, self.B - self.C)
+
+        # does setup for ray triangle intersection code
+        self._calculateTransformations()
+
+    def _calculateTransformations(self):
+        # 3D space -> homogeneous coordinates
+        triangle = Triangle.projectionMatrix.dot(self._points)
+
+        # calculate translation that makes first point in triangle the origin
+        self.translation = triangle[:, 0:1]
+
+        # find linear transformation where B and C map to [1, 0] and [0, 1]
+        # slicing cuts off first column, which is zeroes
+        self.linearTransformation = np.linalg.inv(triangle[:, 1:])
+
 def findReflection(incidentVector, normalVector):
     ''' finds the reflection of the normalized incidentVector off of plane with normalVector normal '''
     incident = np.copy(incidentVector)

@@ -17,6 +17,10 @@ print(timeit.timeit(statement, number=1000, setup=setup))
 
 speed was .122 / 1000 runs of pointInTriangle
 
+for optimized, speed was .0012 / 1000 runs of pointInTriangle
+
+.12 seconds / 10000 intersections
+
 # CUDA
 
 https://github.com/cudamat/cudamat/blob/master/INSTALL.md
