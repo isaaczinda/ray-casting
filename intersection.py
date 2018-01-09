@@ -3,99 +3,55 @@ import time
 from viewport import *
 from geometry import Triangle
 
-def inTriangle(triangle, points):
-    # 3D space -> homogeneous coordinates
-    projectionMatrix = np.array([[1, 0, 0], [0, 1, 0]])
-    triangle = projectionMatrix.dot(triangle)
+def inTriangle(triangle, point):
+    ''' point should be a numpy row vector '''
+    
+    # remove Z component of point
+    transformedPoint = (point[0:2] - triangle.translation).dot(triangle.transformation)
 
-    # calculate translation that makes first point in triangle the origin
-    translation = triangle[:, 0:1]
+    # print(transformedPoint)
 
-    # find linear transformation where B and C map to [1, 0] and [0, 1]
-    # slicing cuts off first column, which is zeroes
-    linearTransformation = np.linalg.inv(triangle[:, 1:])
-
-    # startTime = time.time()
-
-    # transform points in the same way that transformed triangles
-    transformedPoints = linearTransformation.dot(projectionMatrix.dot(points) - translation)
-
-    # iterate over all columns in matrix
     # make sure that the points are within triangle (0, 0) (1, 0) (0, 1)
-    inTriangle = [column[1] <= 1 - column[0] and column[0] >= 0 and column[1] >= 0 for column in transformedPoints.T]
+    return transformedPoint[1] <= 1 - transformedPoint[0] and transformedPoint[0] >= 0 and transformedPoint[1] >= 0
 
-    return inTriangle
+def findIntersection(triangle, ray):
+    ''' returns None if there was no intersection or an Intersection object '''
 
-def findIntersections(triangle, rays):
+    # if the plane and ray are parallel, there can be no intersection
+    if ray.direction.dot(triangle.normal) == 0:
+        return None
+
+    # we find this expression substituting the equation of a ray into the plane equation
+    # ray is defined parametrically, this solves for value of t
+    # triangle.A is a point in the triangle, doesn't matter which
+    t = (triangle.A.dot(triangle.normal) - ray.point.dot(triangle.normal)) / (ray.direction.dot(triangle.normal))
+
+    # make sure we only check the correct direction
+    if t <= 0:
+        return None
+
+    # use value of t to find intersection point
+    point = ray.point + t * ray.direction
+
+    # add to list of intersections if intersection point is in triangle
+    if inTriangle(triangle, point):
+        return Intersection(point, triangle, t)
+
+def findIntersections(triangle, viewport):
     ''' find intersection between rays and triangle
     does not modify triangle or rays objects '''
 
-    planeNormal = np.cross(triangle[0] - triangle[1], triangle[1] - triangle[2])
-    planePoint = triangle[0]
-
-    # # create the array beforehand so we don't have to continually reallocate
-    # intersections = np.empty([rays.width, rays.height])
-    # intersections.fill(False)
-
-
-
-    intersectionPoints = []
-    intersectionCoords = []
-    intersectionDistance = []
-
-    lastTime = time.time()
-
-    # coord tracks the coordinate of the ray that we are using in the screen
-    # starting from the top left
-    for x in range(rays.width()):
-        for y in range(rays.height()):
-
-            ray = rays.getRay(x, y)
-
-            # if the plane and ray are parallel, there can be no intersection
-            if ray.direction.dot(planeNormal) == 0:
-                continue
-
-            # we find this expression substituting the equation of a ray into the plane equation
-            # ray is defined parametrically, this solves for value of t
-            t = (planePoint.dot(planeNormal) - ray.point.dot(planeNormal)) / (ray.direction.dot(planeNormal))
-
-            # make sure we only check the correct direction
-            if t <= 0:
-                continue
-
-            # these aren't huge CPU hogs
-            # use value of t to find intersection point
-            intersectionPoints.append(ray.point + t * ray.direction)
-            intersectionCoords.append((x, y))
-            intersectionDistance.append(t)
-
-
-
-
-    print("time to get intersection points", time.time() - lastTime)
-    lastTime = time.time()
-
-    # reformat intersectionPoints to be a numpy matrix of column vectors
-    # get the locations where rays intersect area inside triangle
-    # transform triangle into column vector of points
-    pointInTriangle = inTriangle(triangle.T, np.array(intersectionPoints).T)
-
-    print("time to get in triangle", time.time() - lastTime)
     lastTime = time.time()
 
     # save data about where intersections happened
     intersections = {}
 
-    for i in range(len(intersectionPoints)):
-        if pointInTriangle[i]:
-            intersections[intersectionCoords[i]] = (intersectionPoints[i])
-
-    print("time to create intersection dictionary", time.time() - lastTime)
-    lastTime = time.time()
-
-    # for key in intersections.keys():
-    #     print(key)
+    # coord tracks the coordinate of the ray that we are using in the screen
+    # starting from the top left
+    for x in range(viewport.width()):
+        for y in range(viewport.height()):
+            ray = viewport.getRay(x, y)
+            findIntersection(triangle, ray)
 
 
 if __name__ == '__main__':

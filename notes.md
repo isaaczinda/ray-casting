@@ -24,3 +24,5 @@ for optimized, speed was .0012 / 1000 runs of pointInTriangle
 # CUDA
 
 https://github.com/cudamat/cudamat/blob/master/INSTALL.md
+
+everything is a ROW VECTOR

@@ -1,7 +1,18 @@
 from geometry import normalized
 import numpy as np
 
+class Intersection:
+    ''' stores information about intersection between ray and triangle '''
+    def __init__(self, point, triangle, distance):
+        self.point = point
+        self.distance = distance
+        self.triangle = triangle
+
+    def __str__(self):
+        return "Intersection: at " + str(self.point)
+
 class Ray:
+    ''' stores positiona and direction of a ray '''
     def __init__(self, point, direction):
         self.point = point
         self.direction = direction
@@ -40,22 +51,6 @@ class ViewPort:
     def height(self):
         ''' gets the height of the image '''
         return self.resolution[1]
-
-    # def __init__(self, lowerLeft, upperRight, lowerRight, eyeDistance):
-    #     ''' creates a new instance of ViewPort. A ViewPort is defined by
-    #     a screen, with a viewer looking at the screen from some distance.
-    #     '''
-    #
-    #     self._eyeDistance = eyeDistance
-    #
-    #     self.lowerLeft = lowerLeft
-    #     self.upperRight = upperRight
-    #     self.lowerRight = lowerRight
-    #     self.upperLeft = lowerLeft + (upperRight - lowerRight)
-    #
-    #     self._setup()
-
-
 
     def _setup(self):
         ''' initializes data members because we have multiple constructors '''
