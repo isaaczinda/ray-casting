@@ -1,44 +1,57 @@
 from world import *
 from viewport import *
-from geometry import *
+from geometry import determineBrightness
 from tkinter import Tk, Canvas, mainloop
 from math import sin
 from PIL import Image
+import sys
 
-w = World(normalized(np.array([0, 2, 1])))
-obj = Object3D('./box.stl', createOpaqueMaterial((50, 50, 50)))
-w.addObject(obj, np.array([0, 0, 0]))
+world = World(np.array([.2, .2, .2])) # set level of ambient light
 
-print(obj.numberTriangles())
+# add objects
+world.addObject('./box.stl', createOpaqueMaterial(np.array([0, 1, 1])), position=np.array([0, 0, 0]))
+world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 0, 1])), position=np.array([10, 10, -5]))
+world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 1, 0])), position=np.array([20, 20, -10]))
+world.addObject('./box.stl', createOpaqueMaterial(np.array([0, 1, 1])), position=np.array([30, 30, -15]))
+world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 0, 1])), position=np.array([40, 40, -20]))
 
-# this is a very wide angle
-# lowerLeft, upperRight, lowerRight, eyeDistance):
+# add lights
+firstLight = Light(np.array([80, 150, 50]), np.array([1, 1, 1])) # white light
+world.addLight(firstLight)
 
-# view = ViewPort(np.array([-25, -25, 50]), np.array([25, 25, 50]), np.array([25, -25, 50]), 50)
+secondLight = Light(np.array([80, 150, -50]), np.array([1, 1, 1])) # white light
+world.addLight(secondLight)
 
-view = ViewPort(np.array([-20, 20, 20]), np.array([0, -20, 0]), 30)
+# setup viewport
+viewport = ViewPort(np.array([40, 100, 100]), np.array([0, -20, 0]), 70, resolution=(200, 200))
 
-image = Image.new('RGB', (view.width(), view.height()), "white")
+image = Image.new('RGB', (viewport.width(), viewport.height()), "white")
 pixels = pixels = image.load() # get pixels, put into array
 
-# cast a ray for each pixel in the screen
-for x in range(view.width()):
-    for y in range(view.height()):
-        rayCoordinate, rayDirection = view.getRay(x, y)
+def progress(count, total, status=''):
+    ''' code from: https://gist.github.com/vladignatyev/06860ec2040cb497f0f3 '''
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
 
-        intersection = w.findFirstIntersection(rayCoordinate, rayDirection)
+    percents = round(100.0 * count / float(total), 1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
 
-        print(x, y)
+    sys.stdout.write('[%s] %s%s %s\r' % (bar, percents, '%', status))
+    sys.stdout.flush()
 
-        # if we didn't hit something, move along
-        if intersection == None:
-            continue
+# coord tracks the coordinate of the ray that we are using in the screen
+# starting from the top left
+for x in range(viewport.width()):
+    progress(x, viewport.width())
 
-        # otherwise, color a pixel
-        baseColor = intersection.material.color
-        tint = determineTint(intersection.triangle, w.lightDirection)
-        # use view.width - x to convert from cartesian coordinates
-        pixels[view.width() - x,y] = (int(baseColor[0] * tint), int(baseColor[1] * tint), int(baseColor[2] * tint))
+    for y in range(viewport.height()):
+        intersection = world.findFirstIntersection(viewport.getRay(x, y))
 
+        # if we need to color something
+        if intersection != None:
+            color = world.colorAtIntersection(intersection)
+
+            # use view.height - y - 1 to convert from cartesian coordinates
+            pixels[x, viewport.height() - y - 1] = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
 
 image.show()

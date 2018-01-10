@@ -2,121 +2,165 @@ import numpy as np
 from stl import mesh
 from geometry import *
 import sys
+from intersection import *
+from viewport import *
 
-class Object3D:
-    ''' created a 3D object in the secified material from an STL file '''
-    def __init__(self, filepathToSTL, material):
-        self.mesh = mesh.Mesh.from_file(filepathToSTL)
+class Triangle:
+    xyProjectionMatrix = np.array([[1, 0], [0, 1], [0, 0]])
+    yzProjectionMatrix = np.array([[0, 0], [1, 0], [0, 1]])
+    xzProjectionMatrix = np.array([[1, 0], [0, 0], [0, 1]])
+
+    def __init__(self, A, B, C, normal, material):
+        ''' construct triangle from three points stored in python arrays '''
+        self.A = np.array(A)
+        self.B = np.array(B)
+        self.C = np.array(C)
         self.material = material
 
-    def numberTriangles(self):
-        ''' gets the number of triangles in an object '''
-        return len(self.mesh.v0)
+        # points stored as row vector
+        self._points = np.array([A, B, C])
+
+        self.normal = normal
+
+        # does setup for ray triangle intersection code
+        self._calculateTransformations()
+
+    def _calculateTransformations(self):
+        # calculate translation that makes first point in triangle the origin
+        self.translationVector = self._points[0]
+
+        # maps onto x-y plane
+        self.projectionMatrix = np.array([[1, 0], [0, 1], [0, 0]])
+
+        # remove first row, which is just origin point
+        translated = (self._points - self.translationVector)[1:, :]
+
+        # find the right projection matrix
+        # we try projecting onto three different planes
+        if np.linalg.det(translated.dot(Triangle.xyProjectionMatrix)) != 0:
+            self.projectionMatrix = Triangle.xyProjectionMatrix
+        elif np.linalg.det(translated.dot(Triangle.xzProjectionMatrix)) != 0:
+            self.projectionMatrix = Triangle.xzProjectionMatrix
+        else:
+            self.projectionMatrix = Triangle.yzProjectionMatrix
+
+        # find the matrix that transforms our second two points to [1, 0] and [0, 1]
+        self.transformationMatrix = np.linalg.inv(translated.dot(self.projectionMatrix))
+
 
 class Material:
     ''' holds collection of rules about how reflection and refraction occur '''
 
-    def __init__(self, transparent, refractionIndex, color):
-        self.transparent = transparent
-        self.refractionIndex = refractionIndex
+    def __init__(self, ambientReflection, diffuseReflection):
+        self.ambientReflection = ambientReflection
+        self.diffuseReflection = diffuseReflection
+
+
+def createOpaqueMaterial(reflectedColor):
+    ''' creates an opaque material that absorbs certain types of light '''
+    return Material(reflectedColor, reflectedColor)
+
+class Light:
+    def __init__(self, position, color):
+        ''' specify position and color of light as numpy arrays '''
+        self.position = position
         self.color = color
 
-def createTransparentMaterial(refractionIndex):
-    ''' creates a transparent material with refractionIndex '''
-    return Material(True, refractionIndex, (0, 0, 0))
-
-def createOpaqueMaterial(color):
-    ''' creates an opaque material that absorbs certain types of light '''
-    return Material(False, 1, color)
-
-class Intersection:
-    ''' contains information about the intersection between a ray and a
-    shape '''
-
-    def __init__(self, triangle, point, material):
-        self.triangle = triangle
-        self.point = point
-        self.material = material
-
-class TriangleIterator:
-    '''
-    iterates over triangles in this World
-    returns tuples containing their material and vertices
-    '''
-
-    def __init__(self, worldObject):
-        self.objectIndex = 0
-        self.triangleIndex = 0
-        self.worldObject = worldObject
-        self.numberObjects = len(self.worldObject.objects)
-
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        # if there are no triangles left to search, go to the beginning of next object
-        numTriangles = len(self.worldObject.objects[self.objectIndex].mesh.points)
-        if self.triangleIndex >= numTriangles:
-            self.triangleIndex = 0
-            self.objectIndex += 1
-
-        # iterate until there are no more objects left
-        if self.objectIndex < self.numberObjects:
-            points = self.worldObject.objects[self.objectIndex].mesh.points[self.triangleIndex]
-            trianglePoints = np.reshape(np.copy(points), (3, 3)) # this is a 2D array
-
-            # since this whole object has a position, move it accordingly
-            for triangle in trianglePoints:
-                triangle += self.worldObject.objectPositions[self.objectIndex]
-
-            triangleMaterial = self.worldObject.objects[self.objectIndex].material
-            self.triangleIndex += 1
-
-            return (trianglePoints, triangleMaterial)
-
-        # if we have been through all of the objects
-        else:
-            raise StopIteration()
 
 class World:
-    def __init__(self, lightDirection=np.array([0, 0, 1])):
-        ''' creates a new world, may specify which direction light comes
-        from '''
-        self.lightDirection = lightDirection
-        self.objects = []
-        self.objectPositions = []
+    def __init__(self, ambientLight):
+        ''' creates a new world '''
+        self.ambientLight = ambientLight
+        self.lights = []
+        self.triangles = []
 
-    def addObject(self, obj, position=np.array([0, 0, 0])):
+    def addLight(self, light):
+        ''' add a point light to the world '''
+        self.lights.append(light)
+
+    def addObject(self, filepathToSTL, material, position=np.array([0, 0, 0])):
         ''' adds an Object3D to the world
-        may specify a position, default is (0, 0, 0) '''
-        self.objects.append(obj)
-        self.objectPositions.append(position)
-
-    def triangles(self):
-        ''' creates an iterator to look through all triangles in world '''
-        return TriangleIterator(self)
-
-    def findFirstIntersection(self, rayPoint, rayDirection):
-        '''
-        finds the first intersection between a world and a ray
-        returns Intersection object if there was an intersection, None
-        if there was no intersection
+        must specify STL file to import object from, STL file must define triangles
+        with counterclockwise points
+        may specify a position, default is (0, 0, 0)
         '''
 
-        smallestDistance = sys.float_info.max # nothing can be larger than this!
-        intersection = None
+        importedMesh = mesh.Mesh.from_file(filepathToSTL)
 
-        for triangle, material in self.triangles():
-            intersectionPoint = getIntersectionPoint(triangle, rayPoint, rayDirection)
+        # extracts triangles from mesh and adds to world
+        for i in range(len(importedMesh.v0)):
+            triangle = Triangle(importedMesh.v0[i] + position, importedMesh.v1[i] + position, \
+                importedMesh.v2[i] + position, normalized(importedMesh.normals[i]), material)
 
-            # if there was an intersection
-            if not np.array_equal(intersectionPoint, np.array([])):
-                distance = np.linalg.norm(rayPoint - intersectionPoint)
+            self.triangles.append(triangle)
 
-                # if this is the closest intersection yet
-                if distance < smallestDistance:
-                    intersection = Intersection(triangle, intersectionPoint, material)
-                    smallestDistance = distance
+    def _intersectionInRange(self, ray, distanceRange):
+        ''' checks if there are any intersections certain distances along the ray '''
 
-        return intersection
+        for triangle in self.triangles:
+            intersection = findIntersection(triangle, ray)
+
+            if intersection != None and intersection.distance >= distanceRange[0] \
+                and intersection.distance <= distanceRange[1]:
+
+                return True
+
+        return False
+
+    def findFirstIntersection(self, ray):
+        ''' returns an intersection object if the ray hits a triangle in this
+        world, otherwise returns None '''
+
+        shortestDistance = 10000
+        firstIntersection = None
+
+        for triangle in self.triangles:
+            currentIntersection = findIntersection(triangle, ray)
+
+            if currentIntersection != None and currentIntersection.distance < shortestDistance:
+                firstIntersection = currentIntersection
+                shortestDistance = currentIntersection.distance
+
+        return firstIntersection
+
+    def _lightVisibleAtIntersection(self, light, intersection):
+        ''' checks if a light shines on an intersection '''
+
+        direction = normalized(light.position - intersection.point)
+        ray = Ray(intersection.point, direction)
+        distanceToLight = np.linalg.norm(light.position - intersection.point)
+
+        # check if there are any triangles between this triangle and the light
+        # .1 ensures we don't check intersection with 'current' triangle
+        return not self._intersectionInRange(ray, (.1, distanceToLight))
+
+    def colorAtIntersection(self, intersection):
+        ''' gets the color of light reflected off an
+        intersection. checks to make sure we are not in shadow '''
+
+        color = np.array([0., 0., 0.])
+
+        # we will check the contribution from each light
+        for light in self.lights:
+            lightDirection = normalized(intersection.point - light.position)
+
+            # if light is not visible at intersection
+            if not self._lightVisibleAtIntersection(light, intersection):
+                return np.array([0., 0., 0.])
+
+             # if it is visible
+            else:
+                # accounts for light shining on object at angle
+                intensity = -lightDirection.dot(intersection.triangle.normal)
+
+                if intensity < 0:
+                    intensity = 0
+
+                # calculate diffuse reflection
+                color += intensity * light.color * intersection.triangle.material.diffuseReflection
+
+        # check contribution from ambient light
+        color += self.ambientLight * intersection.triangle.material.ambientReflection
+
+        # no color can be > 1
+        return np.array([1 if swatch > 1 else swatch for swatch in color])

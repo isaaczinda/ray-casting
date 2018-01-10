@@ -1,16 +1,6 @@
 from geometry import normalized
 import numpy as np
 
-class Intersection:
-    ''' stores information about intersection between ray and triangle '''
-    def __init__(self, point, triangle, distance):
-        self.point = point
-        self.distance = distance
-        self.triangle = triangle
-
-    def __str__(self):
-        return "Intersection: at " + str(self.point)
-
 class Ray:
     ''' stores positiona and direction of a ray '''
     def __init__(self, point, direction):
@@ -97,9 +87,3 @@ class ViewPort:
 
                 # [y, x] because we select row, then column
                 self._rays[x].append(Ray(coordinate, direction))
-
-# run some tests!
-if __name__ == '__main__':
-    view = ViewPort(np.array([0, 0, 10]), np.array([0, 0, 0]), 10)
-
-    print(view.getRay(50, 50))
