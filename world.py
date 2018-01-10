@@ -138,18 +138,15 @@ class World:
         ''' gets the color of light reflected off an
         intersection. checks to make sure we are not in shadow '''
 
-        color = np.array([0., 0., 0.])
+        # start with contribution from ambient light
+        color = self.ambientLight * intersection.triangle.material.ambientReflection
 
         # we will check the contribution from each light
         for light in self.lights:
             lightDirection = normalized(intersection.point - light.position)
 
-            # if light is not visible at intersection
-            if not self._lightVisibleAtIntersection(light, intersection):
-                return np.array([0., 0., 0.])
-
-             # if it is visible
-            else:
+            # if light is visible at intersection
+            if self._lightVisibleAtIntersection(light, intersection):
                 # accounts for light shining on object at angle
                 intensity = -lightDirection.dot(intersection.triangle.normal)
 
@@ -159,8 +156,6 @@ class World:
                 # calculate diffuse reflection
                 color += intensity * light.color * intersection.triangle.material.diffuseReflection
 
-        # check contribution from ambient light
-        color += self.ambientLight * intersection.triangle.material.ambientReflection
 
         # no color can be > 1
         return np.array([1 if swatch > 1 else swatch for swatch in color])

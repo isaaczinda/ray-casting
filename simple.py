@@ -16,14 +16,12 @@ world.addObject('./box.stl', createOpaqueMaterial(np.array([0, 1, 1])), position
 world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 0, 1])), position=np.array([40, 40, -20]))
 
 # add lights
-firstLight = Light(np.array([80, 150, 50]), np.array([1, 1, 1])) # white light
-world.addLight(firstLight)
-
-secondLight = Light(np.array([80, 150, -50]), np.array([1, 1, 1])) # white light
-world.addLight(secondLight)
+world.addLight(Light(np.array([80, 150, 50]), np.array([.25, .25, .25])))
+world.addLight(Light(np.array([80, 150, 0]), np.array([.25, .25, .25])))
+world.addLight(Light(np.array([80, 150, -50]), np.array([.25, .25, .25])))
 
 # setup viewport
-viewport = ViewPort(np.array([40, 100, 100]), np.array([0, -20, 0]), 70, resolution=(200, 200))
+viewport = ViewPort(np.array([40, 100, 100]), np.array([0, -20, 0]), 70, resolution=(400, 400))
 
 image = Image.new('RGB', (viewport.width(), viewport.height()), "white")
 pixels = pixels = image.load() # get pixels, put into array
