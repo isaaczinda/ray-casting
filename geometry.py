@@ -3,21 +3,16 @@ import math
 
 POINT_IN_TRIANGLE_MAX_DIFF = .001
 
-def findReflection(incidentVector, normalVector):
+def findReflection(incident, normal):
     ''' finds the reflection of the normalized incidentVector off of plane with normalVector normal '''
-    incident = np.copy(incidentVector)
-    normal = np.copy(normalVector)
 
     # incidentVector should make an obtuse angle with normalVector
     # flip it if it makes an acute angle
     if incident.dot(normal) > 0:
-        normal *= -1
+        raise Exception("normal was pointing wrong way")
 
-    incident *= -1
-    diff = normal - incident
-    reflected = normal + diff
-
-    return reflected
+    diff = normal + incident
+    return normal + diff
 
 def normalized(a):
     ''' normalizes a vector '''
@@ -26,7 +21,7 @@ def normalized(a):
 
 def determineBrightness(triangle, lightNormal):
     ''' returns the tint of a face from 0 to 1 given light direction '''
-    
+
     # when a light normal and triangle normal are opposite directions,
     # brightest color
     tint = -triangle.normal.dot(lightNormal)

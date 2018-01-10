@@ -156,6 +156,8 @@ class World:
                 # calculate diffuse reflection
                 color += intensity * light.color * intersection.triangle.material.diffuseReflection
 
+                # calculate specular reflection
+
 
         # no color can be > 1
         return np.array([1 if swatch > 1 else swatch for swatch in color])
