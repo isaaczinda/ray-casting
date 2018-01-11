@@ -6,22 +6,26 @@ from math import sin
 from PIL import Image
 import sys
 
-world = World(np.array([.2, .2, .2])) # set level of ambient light
+# setup viewport into world
+viewport = ViewPort(np.array([40, 100, 100]), np.array([0, -20, 0]), 70, resolution=(400, 400))
+
+# setup world
+world = World(np.array([.2, .2, .2]), viewport) # set level of ambient light
 
 # add objects
-world.addObject('./box.stl', createOpaqueMaterial(np.array([0, 1, 1])), position=np.array([0, 0, 0]))
-world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 0, 1])), position=np.array([10, 10, -5]))
-world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 1, 0])), position=np.array([20, 20, -10]))
-world.addObject('./box.stl', createOpaqueMaterial(np.array([0, 1, 1])), position=np.array([30, 30, -15]))
-world.addObject('./box.stl', createOpaqueMaterial(np.array([1, 0, 1])), position=np.array([40, 40, -20]))
+world.addObject('./stl/box.stl', createOpaqueMaterial(np.array([0, 1, 1]), 0), position=np.array([0, 0, 0]))
+world.addObject('./stl/box.stl', createOpaqueMaterial(np.array([1, 0, 1]), 0), position=np.array([10, 10, -5]))
+world.addObject('./stl/box.stl', createOpaqueMaterial(np.array([1, 1, 0]), 0), position=np.array([20, 20, -10]))
+world.addObject('./stl/box.stl', createOpaqueMaterial(np.array([0, 1, 1]), 0), position=np.array([30, 30, -15]))
+world.addObject('./stl/box.stl', createOpaqueMaterial(np.array([1, 0, 1]), 0), position=np.array([40, 40, -20]))
+
+world.addObject('./stl/ball.stl', createOpaqueMaterial(np.array([0, 1, 0]), 1), position=np.array([20, 40, 0]))
 
 # add lights
 world.addLight(Light(np.array([80, 150, 50]), np.array([.25, .25, .25])))
 world.addLight(Light(np.array([80, 150, 0]), np.array([.25, .25, .25])))
 world.addLight(Light(np.array([80, 150, -50]), np.array([.25, .25, .25])))
 
-# setup viewport
-viewport = ViewPort(np.array([40, 100, 100]), np.array([0, -20, 0]), 70, resolution=(400, 400))
 
 image = Image.new('RGB', (viewport.width(), viewport.height()), "white")
 pixels = pixels = image.load() # get pixels, put into array
@@ -47,9 +51,22 @@ for x in range(viewport.width()):
 
         # if we need to color something
         if intersection != None:
-            color = world.colorAtIntersection(intersection)
+            try:
+                color = world.colorAtIntersection(intersection)
+                pixels[x, viewport.height() - y - 1] = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
+            # if there was an error finding the color, use a nearby color
+            except:
+                # if there is a mistake with the bottom left pixle, color
+                # it white
+                color = (255, 255, 255)
 
-            # use view.height - y - 1 to convert from cartesian coordinates
-            pixels[x, viewport.height() - y - 1] = (int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
+                # otherwise use a nearby pixle
+                if x > 0:
+                    color = pixels[x - 1, viewport.height() - y - 1]
+                elif y > 0:
+                    color = pixels[x, viewport.height() - y - 2]
+
+                pixels[x, viewport.height() - y - 1] = color
+
 
 image.show()

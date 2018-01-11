@@ -2,6 +2,9 @@ import numpy as np
 import time
 from world import *
 
+# add a bit of size to each triangle to account for floating point math
+TRIANGLE_SCALE = .000001 # one millionth
+
 class Intersection:
     ''' stores information about intersection between ray and triangle '''
     def __init__(self, point, triangle, distance):
@@ -19,7 +22,10 @@ def _inTriangle(triangle, point):
     transformedPoint = ((point - triangle.translationVector).dot(triangle.projectionMatrix)).dot(triangle.transformationMatrix)
 
     # make sure that the points are within triangle (0, 0) (1, 0) (0, 1)
-    return transformedPoint[1] <= 1 - transformedPoint[0] and transformedPoint[0] >= 0 and transformedPoint[1] >= 0
+    # actually make the triangle limits a bit bigger so the triangle is easier to hit
+    return transformedPoint[1] <= 1 - transformedPoint[0] + TRIANGLE_SCALE and \
+        transformedPoint[0] >= -TRIANGLE_SCALE and \
+        transformedPoint[1] >= -TRIANGLE_SCALE
 
 def findIntersection(triangle, ray):
     ''' find intersection between trinagle and ray

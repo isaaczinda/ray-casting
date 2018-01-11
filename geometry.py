@@ -1,17 +1,16 @@
 import numpy as np
 import math
 
-POINT_IN_TRIANGLE_MAX_DIFF = .001
-
 def findReflection(incident, normal):
     ''' finds the reflection of the normalized incidentVector off of plane with normalVector normal '''
+    incidentCopy = np.copy(incident)
 
     # incidentVector should make an obtuse angle with normalVector
     # flip it if it makes an acute angle
-    if incident.dot(normal) > 0:
-        raise Exception("normal was pointing wrong way")
+    if incidentCopy.dot(normal) > 0:
+        raise Exception("normal was facing the wrong way")
 
-    diff = normal + incident
+    diff = normal + incidentCopy
     return normal + diff
 
 def normalized(a):
